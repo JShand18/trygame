@@ -9,6 +9,14 @@
 import SpriteKit
 import GameplayKit
 
+struct PhysicsCategory {
+    static let none : UInt32 = 0
+    static let all : UInt32 = UInt32.max
+    static let player : UInt32 = 0b1 // player is represented by first bit
+    static let burger: UInt32 = 0b10 // burger by second bit
+    static let pizza: UInt32 = 0b100 // pizza by third bit
+}
+
 class GameScene: SKScene {
     
     //creation of functions to make random variables
@@ -24,8 +32,22 @@ class GameScene: SKScene {
     func addFood() {
         
         // creating sprites for the food in the game
+        // burger and physic idenities
         let burger = SKSpriteNode(imageNamed: "burger")
+        burger.physicsBody = SKPhysicsBody(rectangleOf: burger.size) // physical body of the burger sprite
+        burger.physicsBody?.isDynamic = true // the burger will move by the implmented code not the physics body
+        burger.physicsBody?.categoryBitMask = PhysicsCategory.burger // bit idenity
+        burger.physicsBody?.contactTestBitMask = PhysicsCategory.player // what bit idenity to look for intsection
+        burger.physicsBody?.collisionBitMask = PhysicsCategory.none // collison identifer dont want any bouncing
+        
+        
         let pizza = SKSpriteNode(imageNamed: "pizza")
+        pizza.physicsBody = SKPhysicsBody(rectangleOf: pizza.size) // ^
+        pizza.physicsBody?.isDynamic = true // ^^
+        pizza.physicsBody?.categoryBitMask = PhysicsCategory.pizza // ^^^
+        pizza.physicsBody?.contactTestBitMask = PhysicsCategory.player // ^^^^
+        pizza.physicsBody?.collisionBitMask = PhysicsCategory.none // ^^^^^
+        
         
         // making random variables for the y position of the food
         let actualBurgerY = random(min: -size.height + burger.size.height, max: size.height)
@@ -71,6 +93,9 @@ class GameScene: SKScene {
             ])
         ))
         
+        physicsWorld.gravity = .zero //set the gravity of the of the game scene to none
+        physicsWorld.contactDelegate = self  // allows the delegate to contact when two bodies collide
+        
         
     }
     
@@ -99,6 +124,14 @@ class GameScene: SKScene {
             player.position.x = location.x
             player.position.y = location.y
             
+            player.physicsBody = SKPhysicsBody(circleOfRadius: player.size.width/2)
+            player.physicsBody?.isDynamic = true
+            player.physicsBody?.categoryBitMask = PhysicsCategory.player
+            player.physicsBody?.contactTestBitMask = PhysicsCategory.burger
+            player.physicsBody?.contactTestBitMask = PhysicsCategory.pizza
+            player.physicsBody?.collisionBitMask = PhysicsCategory.none
+            player.physicsBody?.usesPreciseCollisionDetection = true
+            
             print("x: \(player.position.x) y: \(player.position.y)")
         }
     }
@@ -114,5 +147,50 @@ class GameScene: SKScene {
     
     override func update(_ currentTime: TimeInterval) {
      
+    }
+    
+    func playerDidCollideWIthBurger(player: SKSpriteNode, burger: SKSpriteNode) {
+        print("Eaten!")
+        burger.removeFromParent()
+    }
+    
+    func playerDidCollideWIthPizza(player: SKSpriteNode, pizza: SKSpriteNode) {
+        print("Eaten!")
+        pizza.removeFromParent()
+    }
+}
+
+extension GameScene: SKPhysicsContactDelegate{
+    
+    func didBegin(_ contact: SKPhysicsContact) {
+        
+        var firstBody = SKPhysicsBody()
+        var secondBody = SKPhysicsBody()
+        
+        if contact.bodyA.categoryBitMask < contact.bodyB.categoryBitMask{
+            firstBody = contact.bodyA
+            secondBody = contact.bodyB
+        } else{
+            firstBody = contact.bodyB
+            secondBody = contact.bodyA
+        }
+        
+        
+        // checks to see if the two bodies that made contact are the burger/pizza and the player(kirby)
+        if ((firstBody.categoryBitMask & PhysicsCategory.burger != 0) && (secondBody.categoryBitMask & PhysicsCategory.player != 0)){
+            if let burger = firstBody.node as? SKSpriteNode, let player = secondBody.node as? SKSpriteNode{
+                playerDidCollideWIthBurger(player: player, burger: burger)
+            }
+            
+        }
+    
+        if ((firstBody.categoryBitMask & PhysicsCategory.pizza != 0) && (secondBody.categoryBitMask & PhysicsCategory.player != 0)){
+            if let pizza = firstBody.node as? SKSpriteNode, let player = secondBody.node as? SKSpriteNode{
+                playerDidCollideWIthPizza(player: player, pizza: pizza)
+            }
+            
+        }
+        
+        
     }
 }
